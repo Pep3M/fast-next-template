@@ -1,0 +1,23 @@
+# Configuración de Bun para el proyecto
+
+[test]
+# Archivos de configuración previos a ejecutar tests
+preload = ["./__tests__/setup.ts"]
+
+# Timeout por defecto para tests (en ms)
+timeout = 10000
+
+# Mostrar coverage
+coverage = true
+
+# Umbral de cobertura mínima
+coverageThreshold = 60
+
+# Directorios a incluir en coverage
+coverageDir = "./coverage"
+
+# Formato de reportes de coverage
+coverageReporter = ["text", "lcov"]
+
+# Bail on first failure
+bail = false

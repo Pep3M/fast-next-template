@@ -1,0 +1,25 @@
+# Dockerfile para desarrollo con Bun
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package.json bun.lock ./
+
+# Instalar dependencias con output detallado y cache mount para optimizar builds
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --verbose
+
+# Copiar scripts de entrypoint
+COPY scripts/entrypoint-dev.sh /app/scripts/
+RUN chmod +x /app/scripts/entrypoint-dev.sh
+
+# Copiar schema de Prisma (necesario para generar cliente)
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Exponer el puerto de desarrollo
+EXPOSE 5023
+
+# Usar script de entrypoint que genera Prisma y ejecuta migraciones
+CMD ["/app/scripts/entrypoint-dev.sh"]
