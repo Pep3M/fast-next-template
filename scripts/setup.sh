@@ -41,9 +41,18 @@ done
 echo ""
 echo "Generating secrets and creating .env..."
 
-AUTH_SECRET=$(openssl rand -base64 32)
-DB_PASSWORD=$(openssl rand -hex 16)
 DB_NAME="${PROJECT_NAME//-/_}_dev"
+
+if command -v openssl &> /dev/null; then
+  AUTH_SECRET=$(openssl rand -base64 32)
+  DB_PASSWORD=$(openssl rand -hex 16)
+  echo "  ✓ Secrets generated with openssl"
+else
+  AUTH_SECRET="change-me-to-a-secure-random-string"
+  DB_PASSWORD="change-me-to-hash"
+  echo "  ⚠ openssl not found — placeholder secrets used. Replace them in .env before running the app."
+fi
+
 DATABASE_URL="postgresql://postgres:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
 
 cp .env.example .env
