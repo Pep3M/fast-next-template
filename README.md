@@ -16,7 +16,7 @@ A production-ready Next.js 16 starter template with authentication, a protected 
 - **UI** — [shadcn/ui](https://ui.shadcn.com) + [Radix UI](https://www.radix-ui.com) + TailwindCSS 4
 - **Dark/light mode** — Theme toggler included
 - **Docker** — Multi-stage Dockerfile with hot-reload dev compose and production compose
-- **CI/CD** — GitHub Actions: build → push to ghcr.io → SSH deploy to dev/prod servers
+- **CI/CD** — GitHub Actions: build → push image to ghcr.io on every push to `main`
 - **Testing** — [bun:test](https://bun.sh/docs/cli/test) with example unit tests
 
 ## Quick Start
@@ -81,15 +81,14 @@ prisma/
 
 scripts/
 ├── setup.sh              # Interactive project setup script
-├── entrypoint-prod.sh    # Production container startup
-├── entrypoint-dev.sh     # Development container startup
-├── build-and-push.sh     # Manual Docker build & push
-└── deploy-production.sh  # Manual deployment script
+├── build-and-push.sh     # Manual Docker build & push to registry
+├── entrypoint-prod.sh    # Production container startup (migrations + server)
+└── entrypoint-dev.sh     # Development container startup
 ```
 
 ## Environment Variables
 
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` (or run `setup.sh` to generate it automatically):
 
 ```bash
 cp .env.example .env
@@ -109,16 +108,22 @@ cp .env.example .env
 # Development (with hot reload)
 docker-compose -f docker-compose.dev.yml up -d
 
-# Production (pre-built image)
+# Production (pre-built image from registry)
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-## CI/CD Setup
+See `config.env.build.example` and `config.env.prod.example` for registry configuration.
 
-1. Push to `dev` → builds `:dev` image → deploys to dev server
-2. Push to `main` → builds `:latest` + `:production` → deploys to production server
+## CI/CD
 
-Required GitHub Secrets: `SSH_HOST`, `SSH_USERNAME`, `SSH_PRIVATE_KEY`, `SSH_PORT` (and `*_PROD` for production).
+Every push to `main` triggers `.github/workflows/build-and-push.yml`, which:
+
+1. Builds the Docker image
+2. Pushes it to GitHub Container Registry (`ghcr.io`) with tags `:latest` and `:production`
+
+No secrets are required beyond the default `GITHUB_TOKEN`. Deployment to servers is handled separately.
+
+**Optional:** set `NEXT_PUBLIC_BETTER_AUTH_URL` as a GitHub Actions secret to embed the correct URL at build time.
 
 ## Testing
 

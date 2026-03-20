@@ -1,55 +1,53 @@
 #!/bin/bash
 
-# Script para construir y subir la imagen Docker de phone-services-app
-# Este script debe ejecutarse en LOCAL antes del despliegue en producción
+# Builds and pushes the Docker image to a container registry.
+# Run this script locally to manually build and publish the image.
 
-set -e  # Detener si hay algún error
+set -e
 
-# Colores para output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${GREEN}=== Phone Services - Build & Push Script ===${NC}\n"
+echo -e "${GREEN}=== fast-next-template - Build & Push ===${NC}\n"
 
-# Cargar variables de entorno si existe .env.build
+# Load environment variables from .env.build if it exists
 if [ -f .env.build ]; then
     echo -e "${YELLOW}Loading environment variables from .env.build${NC}"
     export $(cat .env.build | grep -v '^#' | xargs)
 fi
 
-# Variables configurables (pueden ser sobrescritas por .env.build o argumentos)
+# Configurable variables (can be overridden by .env.build or CLI arguments)
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-"ghcr.io"}
 DOCKER_USERNAME=${DOCKER_USERNAME:-"username"}
-IMAGE_NAME=${IMAGE_NAME:-"phone-services-app"}
+IMAGE_NAME=${IMAGE_NAME:-"fast-next-template"}
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
 
-# Convertir a minúsculas (Docker requiere nombres de repositorio en minúsculas)
+# Docker requires lowercase repository names
 DOCKER_USERNAME=$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]')
 IMAGE_NAME=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
 
-# Construir el nombre completo de la imagen
 FULL_IMAGE_NAME="${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${IMAGE_NAME}"
 
 echo -e "${YELLOW}Configuration:${NC}"
-echo "  Registry: ${DOCKER_REGISTRY}"
-echo "  Username: ${DOCKER_USERNAME}"
-echo "  Image Name: ${IMAGE_NAME}"
-echo "  Tag: ${IMAGE_TAG}"
-echo "  Full Image: ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
+echo "  Registry:   ${DOCKER_REGISTRY}"
+echo "  Username:   ${DOCKER_USERNAME}"
+echo "  Image name: ${IMAGE_NAME}"
+echo "  Tag:        ${IMAGE_TAG}"
+echo "  Full image: ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
 echo ""
 
-# Función para mostrar uso
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  -r, --registry REGISTRY    Docker registry (default: ghcr.io)"
-    echo "  -u, --username USERNAME    Docker username/organization"
-    echo "  -n, --name NAME           Image name (default: phone-services-app)"
-    echo "  -t, --tag TAG             Image tag (default: latest)"
-    echo "  -h, --help                Show this help message"
+    echo "  -u, --username USERNAME    Docker username or organization"
+    echo "  -n, --name NAME            Image name (default: fast-next-template)"
+    echo "  -t, --tag TAG              Image tag (default: latest)"
+    echo "  -h, --help                 Show this help"
     echo ""
     echo "Examples:"
     echo "  $0 -u myuser -t v1.0.0"
@@ -58,7 +56,7 @@ usage() {
     exit 1
 }
 
-# Parsear argumentos
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -r|--registry)
@@ -87,27 +85,24 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validar que el usuario esté autenticado en el registry
-echo -e "${YELLOW}Checking Docker authentication...${NC}"
+# Check Docker is running
+echo -e "${YELLOW}Checking Docker...${NC}"
 if ! docker info > /dev/null 2>&1; then
     echo -e "${RED}Error: Docker is not running${NC}"
     exit 1
 fi
-
-# Verificar si ya hay una sesión activa (esto depende del registry)
 echo -e "${GREEN}✓ Docker is running${NC}\n"
 
-# Validar que NEXT_PUBLIC_BETTER_AUTH_URL esté configurada
+# Warn if NEXT_PUBLIC_BETTER_AUTH_URL is not set
 if [ -z "$NEXT_PUBLIC_BETTER_AUTH_URL" ]; then
-    echo -e "${YELLOW}⚠ WARNING: NEXT_PUBLIC_BETTER_AUTH_URL is not set${NC}"
-    echo -e "${YELLOW}   Using default: http://localhost:5023${NC}"
-    echo -e "${YELLOW}   Set NEXT_PUBLIC_BETTER_AUTH_URL in .env.build or export it before running this script${NC}\n"
+    echo -e "${YELLOW}⚠ NEXT_PUBLIC_BETTER_AUTH_URL is not set — defaulting to http://localhost:5023${NC}"
+    echo -e "${YELLOW}  Set it in .env.build or export it before running this script${NC}\n"
     NEXT_PUBLIC_BETTER_AUTH_URL="http://localhost:5023"
 else
     echo -e "${GREEN}✓ NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL}${NC}\n"
 fi
 
-# Paso 1: Construir la imagen
+# Step 1: Build image
 echo -e "${GREEN}Step 1/3: Building Docker image...${NC}"
 docker build \
     --platform linux/amd64 \
@@ -117,52 +112,28 @@ docker build \
     -t ${FULL_IMAGE_NAME}:latest \
     -f Dockerfile \
     .
+echo -e "${GREEN}✓ Image built successfully${NC}\n"
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Image built successfully${NC}\n"
-else
-    echo -e "${RED}✗ Error building image${NC}"
-    exit 1
-fi
-
-# Paso 2: Hacer tag adicional con timestamp para versionado
+# Step 2: Tag with timestamp
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-echo -e "${GREEN}Step 2/3: Creating additional tag with timestamp...${NC}"
+echo -e "${GREEN}Step 2/3: Tagging with timestamp ${TIMESTAMP}...${NC}"
 docker tag ${FULL_IMAGE_NAME}:${IMAGE_TAG} ${FULL_IMAGE_NAME}:${TIMESTAMP}
 echo -e "${GREEN}✓ Tagged as ${FULL_IMAGE_NAME}:${TIMESTAMP}${NC}\n"
 
-# Paso 3: Subir la imagen al registry
-echo -e "${GREEN}Step 3/3: Pushing image to registry...${NC}"
-echo -e "${YELLOW}Pushing ${FULL_IMAGE_NAME}:${IMAGE_TAG}${NC}"
+# Step 3: Push images
+echo -e "${GREEN}Step 3/3: Pushing images to registry...${NC}"
 docker push ${FULL_IMAGE_NAME}:${IMAGE_TAG}
-
-echo -e "${YELLOW}Pushing ${FULL_IMAGE_NAME}:latest${NC}"
 docker push ${FULL_IMAGE_NAME}:latest
-
-echo -e "${YELLOW}Pushing ${FULL_IMAGE_NAME}:${TIMESTAMP}${NC}"
 docker push ${FULL_IMAGE_NAME}:${TIMESTAMP}
+echo -e "${GREEN}✓ Images pushed successfully${NC}\n"
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Images pushed successfully${NC}\n"
-else
-    echo -e "${RED}✗ Error pushing images${NC}"
-    exit 1
-fi
-
-# Resumen
-echo -e "${GREEN}=== Build & Push Completed Successfully ===${NC}\n"
-echo -e "${YELLOW}Images pushed:${NC}"
-echo "  - ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
-echo "  - ${FULL_IMAGE_NAME}:latest"
-echo "  - ${FULL_IMAGE_NAME}:${TIMESTAMP}"
+# Summary
+echo -e "${GREEN}=== Build & Push Completed ===${NC}\n"
+echo -e "${YELLOW}Images published:${NC}"
+echo "  ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
+echo "  ${FULL_IMAGE_NAME}:latest"
+echo "  ${FULL_IMAGE_NAME}:${TIMESTAMP}"
 echo ""
-echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Update your .env file on production server with:"
-echo "     DOCKER_REGISTRY=${DOCKER_REGISTRY}"
-echo "     DOCKER_USERNAME=${DOCKER_USERNAME}"
-echo "     IMAGE_TAG=${IMAGE_TAG}"
-echo ""
-echo "  2. On production server, run:"
-echo "     docker-compose -f docker-compose.prod.yml pull"
-echo "     docker-compose -f docker-compose.prod.yml up -d"
+echo -e "${YELLOW}Pull the image on your server:${NC}"
+echo "  docker pull ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
 echo ""

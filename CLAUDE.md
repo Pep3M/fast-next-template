@@ -33,18 +33,10 @@ npx prisma studio              # Open Prisma Studio GUI
 npx prisma generate            # Generate Prisma Client
 ```
 
-### Deploy on Servers
-
-**On Development Server:**
+### Docker Image (manual build & push)
 ```bash
-./scripts/deploy-production.sh --env dev --skip-health-check
-docker-compose -f docker-compose.dev.yml logs -f app
-```
-
-**On Production Server:**
-```bash
-./scripts/deploy-production.sh --env prod --skip-health-check
-docker-compose -f docker-compose.prod.yml logs -f app
+cp config.env.build.example .env.build   # Configure registry credentials
+./scripts/build-and-push.sh              # Build and push to registry
 ```
 
 ## Architecture
@@ -70,7 +62,7 @@ docker-compose -f docker-compose.prod.yml logs -f app
   - `auth-client.ts` - Client-side auth helpers
   - `prisma.ts` - Prisma client singleton
   - `hooks/` - React hooks including `use-auth.ts`
-- `scripts/` - Deployment and utility scripts
+- `scripts/` - Build and container startup scripts
 - `prisma/` - Prisma schema and migrations
 
 ### Path Aliases
@@ -129,10 +121,11 @@ Copy `.env.example` to `.env` and fill in the values, or run `scripts/setup.sh` 
 ### CI/CD
 
 The project uses GitHub Actions (`.github/workflows/build-and-push.yml`):
-- **`dev` branch** → builds image `:dev` → deploys to development server
-- **`main` branch** → builds images `:latest` and `:production` → deploys to production server
+- Pushes to `dev` → builds and pushes image tagged `:dev`
+- Pushes to `main` → builds and pushes images tagged `:latest` and `:production`
+- Deployment to servers is out of scope for this workflow — pull the image on your server and run it with `docker-compose.prod.yml`
 
-Required GitHub Secrets: `SSH_HOST`, `SSH_USERNAME`, `SSH_PRIVATE_KEY`, `SSH_PORT` (dev), and `*_PROD` variants for production.
+No GitHub Secrets are required beyond the default `GITHUB_TOKEN`. Optionally set `NEXT_PUBLIC_BETTER_AUTH_URL` as a secret to embed the correct URL at build time.
 
 ## Working with This Template
 

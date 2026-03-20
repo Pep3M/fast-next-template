@@ -37,7 +37,40 @@ for FILE in "${FILES[@]}"; do
   fi
 done
 
-# 3. Generate secrets and create .env
+# 3. CI/CD workflow configuration
+echo ""
+echo "GitHub Actions is configured to build a Docker image whenever you push to 'main'."
+echo ""
+echo "Would you like to keep this behavior?"
+echo "  1) Yes  — keep automatic image builds on push to main"
+echo "  2) No   — remove the push trigger (you can still trigger builds manually)"
+echo "  3) Not now, maybe later — comment out the push trigger (easy to re-enable)"
+echo ""
+read -p "Enter your choice [1/2/3]: " CICD_CHOICE
+
+WORKFLOW=".github/workflows/build-and-push.yml"
+if [ -f "$WORKFLOW" ]; then
+  case "$CICD_CHOICE" in
+    1)
+      echo "  ✓ CI/CD workflow kept as is"
+      ;;
+    2)
+      # Remove the push: block, keep only workflow_dispatch
+      sed -i.bak '/^  push:/,/^  workflow_dispatch:/{/^  workflow_dispatch:/!d}' "$WORKFLOW" && rm -f "$WORKFLOW.bak"
+      echo "  ✓ Push trigger removed — builds can still be triggered manually from GitHub Actions"
+      ;;
+    3)
+      # Comment out the push: block lines
+      sed -i.bak '/^  push:/,/^  workflow_dispatch:/{/^  workflow_dispatch:/!s/^/# /}' "$WORKFLOW" && rm -f "$WORKFLOW.bak"
+      echo "  ✓ Push trigger commented out — uncomment in .github/workflows/build-and-push.yml to re-enable"
+      ;;
+    *)
+      echo "  ⚠ Invalid choice, skipping CI/CD configuration"
+      ;;
+  esac
+fi
+
+# 4. Generate secrets and create .env
 echo ""
 echo "Generating secrets and creating .env..."
 
@@ -65,7 +98,7 @@ sed -i.bak "s|POSTGRES_DB=.*|POSTGRES_DB=$DB_NAME|" .env && rm -f .env.bak
 
 echo "  ✓ Created .env with generated secrets"
 
-# 4. Optionally install dependencies
+# 5. Optionally install dependencies
 echo ""
 read -p "Install dependencies with 'bun install'? (y/N): " INSTALL_DEPS
 if [[ "$INSTALL_DEPS" =~ ^[Yy]$ ]]; then
@@ -74,7 +107,7 @@ if [[ "$INSTALL_DEPS" =~ ^[Yy]$ ]]; then
   echo "  ✓ Dependencies installed"
 fi
 
-# 5. Next steps
+# 6. Next steps
 echo ""
 echo "========================================"
 echo "  Setup complete!"
